@@ -29,7 +29,7 @@
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
   
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; text-align: center; padding-bottom: 12px; }
-  .card img { width: 100%; height: 100px; object-fit: cover; }
+  .card img { width: 100%; height: 150px; object-fit: contain; padding: 5px; cursor: pointer; }
   .card h4 { font-size: 0.9rem; margin-top: 6px; padding: 0 4px; }
   .price-row { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
   .mrp { text-decoration: line-through; color: var(--text-muted); font-size: 0.7rem; }
@@ -39,8 +39,27 @@
   .confirm-btn { width: 90%; background: var(--success); color: #fff; border: none; padding: 6px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 6px; font-size: 0.8rem; margin-left:auto; margin-right:auto; display:block; }
   
   .bottom-action { position: fixed; bottom: 0; left: 0; right: 0; padding: 1.2rem; background: linear-gradient(transparent, var(--bg) 20%); padding-bottom: calc(1.2rem + var(--safe-area-bottom)); }
-  .btn-main { width: 100%; background: var(--gold); color: #000; border: none; padding: 1.2rem; border-radius: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; }
-  .btn-main:disabled { opacity: 0.5; }
+  .btn-main { width: 100%; background: var(--gold); color: #000; border: none; padding: 1.2rem; border-radius: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.3s; position: relative; }
+  .btn-main:disabled { opacity: 0.7; cursor: wait; }
+
+  @keyframes spinDots {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  .btn-main.loading {
+    color: transparent !important; 
+  }
+  .btn-main.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    border: 4px dotted #000;
+    border-radius: 50%;
+    animation: spinDots 2s linear infinite;
+  }
   
   .cart-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; justify-content: flex-end; flex-direction: column; }
   .cart-overlay.open { display: flex; }
@@ -82,8 +101,12 @@
 <div class="page" id="page-success">
   <div class="content" style="text-align:center; padding-top:30%">
     <div style="font-size:4rem">🎉</div>
+    <h3 id="success-greeting" style="color:var(--gold); margin-bottom: 0.5rem; font-size:1.5rem;"></h3>
     <h2>Order Placed!</h2>
     <p style="color:var(--text-muted); margin-top:1rem">Your items are on the way.</p>
+    
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:2rem;">For queries call: <strong style="color:var(--text);">90XXXXXXXX</strong></p>
+    
     <div class="bottom-action"><button class="btn-main" onclick="location.reload()">Shop Again</button></div>
   </div>
 </div>
@@ -96,7 +119,6 @@
     </div>
     <div id="cart-list" style="overflow-y:auto; padding:1rem; flex:1"></div>
     <div style="padding:1.5rem; border-top:1px solid var(--border)">
-        
       <div style="margin-bottom: 1.2rem;">
          <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:0.4rem; font-weight:bold;">Delivery Slot</label>
          <select id="delivery-slot" style="width:100%; padding:0.8rem; border-radius:10px; background:var(--surface2); border:1px solid var(--border); color:#fff; outline:none; font-family:'DM Sans', sans-serif;">
@@ -104,7 +126,6 @@
              <option value="Evening (4 PM - 8 PM)">Evening (4 PM - 8 PM)</option>
          </select>
       </div>
-
       <div style="display:flex; justify-content:space-between; margin-bottom:1rem">
         <span>Total Saved: <span id="cart-savings" style="color:var(--success); font-weight:700">₹0</span></span>
         <span>Total: <span id="cart-total" style="color:var(--gold); font-weight:700">₹0</span></span>
@@ -125,8 +146,24 @@
     </div>
 </div>
 
+<div class="modal-overlay hidden" id="product-modal" onclick="if(event.target===this)closeProductModal()">
+    <div style="background:var(--surface); border-radius:20px; text-align:center; border:1px solid var(--border); width:90%; max-width:400px; overflow:hidden; position:relative;">
+        <button onclick="closeProductModal()" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:50%; width:30px; height:30px; font-size:1.2rem; cursor:pointer; z-index:10;">&times;</button>
+        <img id="modal-img" src="" style="width:100%; height:250px; object-fit:contain; background:#fff; padding:10px;" onerror="this.style.display='none'">
+        <div style="padding:1.5rem;">
+            <h2 id="modal-title" style="margin-bottom:5px;">Product Name</h2>
+            <div class="price-row" style="margin-bottom:10px; font-size:1rem;">
+                <span class="mrp" id="modal-mrp">₹0</span>
+                <span class="discount-badge" id="modal-discount">0% OFF</span>
+            </div>
+            <div class="actual-price" id="modal-price" style="font-size:1.8rem; margin-bottom:20px;">₹0</div>
+            <div id="modal-action-container"></div>
+        </div>
+    </div>
+</div>
+
 <script>
-// --- PASTE YOUR NEW APP SCRIPT URL HERE ---
+// IMPORTANT: Paste your Apps Script URL here!
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd-VY1Ji4wp68Bo5v6S8RdRUQIukc0ziDM2F86y2FepriByhftQhxNUIGeJxGLhNIH/exec';
 
 let PRODUCTS = [];
@@ -137,8 +174,8 @@ let savedData = null;
 document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById('login-btn');
     if(btn) {
-        btn.innerText = 'Loading Store...';
         btn.disabled = true;
+        btn.classList.add('loading');
     }
 
     fetch(APPS_SCRIPT_URL, {
@@ -163,8 +200,8 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .finally(() => {
         if(btn) {
-            btn.innerText = 'Get Started →';
             btn.disabled = false;
+            btn.classList.remove('loading'); 
         }
     });
 });
@@ -179,9 +216,49 @@ function checkLocalCache() {
         document.getElementById('f-phone').value = user.phone;
         document.getElementById('f-address').value = user.address;
         
-        if (cachedCart) { cart = JSON.parse(cachedCart); updateUI(); }
-        
-        proceedToShop();
+        let hasActiveCart = false;
+        try {
+            if (cachedCart) {
+                const parsedCart = JSON.parse(cachedCart);
+                if (parsedCart.length > 0) {
+                    hasActiveCart = true;
+                    cart = parsedCart; 
+                    updateUI(); 
+                    proceedToShop();
+                }
+            }
+        } catch(e) {}
+
+        if (!hasActiveCart) {
+            const btn = document.getElementById('login-btn');
+            if(btn) { 
+                btn.disabled = true; 
+                btn.classList.add('loading'); 
+            }
+
+            fetch(APPS_SCRIPT_URL, { 
+                method: 'POST',
+                redirect: 'follow',
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: 'checkUser', ...user }) 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.found && data.cart && data.cart.length > 0) {
+                    savedData = data.cart;
+                    document.getElementById('returning-modal').classList.remove('hidden');
+                } else { 
+                    proceedToShop(); 
+                }
+            })
+            .catch(() => proceedToShop())
+            .finally(() => {
+                if(btn) { 
+                    btn.disabled = false; 
+                    btn.classList.remove('loading'); 
+                }
+            });
+        }
     }
 }
 
@@ -202,8 +279,8 @@ function handleLogin() {
   localStorage.setItem('shopease_user', JSON.stringify(user));
 
   const btn = document.getElementById('login-btn');
-  btn.innerText = 'Please Wait....';
   btn.disabled = true; 
+  btn.classList.add('loading');
   
   fetch(APPS_SCRIPT_URL, { 
     method: 'POST',
@@ -219,7 +296,10 @@ function handleLogin() {
     } else { proceedToShop(); }
   })
   .catch(() => proceedToShop())
-  .finally(() => { btn.innerText = 'Get Started →'; btn.disabled = false; });
+  .finally(() => { 
+      btn.disabled = false; 
+      btn.classList.remove('loading'); 
+  });
 }
 
 function proceedToShop() {
@@ -241,6 +321,44 @@ function filterProducts() {
   renderProducts(searchTerm);
 }
 
+function openProductModal(name) {
+    const p = PRODUCTS.find(prod => prod.name === name);
+    if(!p) return;
+
+    document.getElementById('modal-img').src = p.productImg || '';
+    document.getElementById('modal-img').style.display = p.productImg ? 'block' : 'none';
+    document.getElementById('modal-title').innerText = p.name;
+    document.getElementById('modal-mrp').innerText = `₹${p.mrp}`;
+    document.getElementById('modal-discount').innerText = `${p.discount}% OFF`;
+    document.getElementById('modal-price').innerText = `₹${p.price}`;
+
+    updateModalCartAction(p.name);
+    document.getElementById('product-modal').classList.remove('hidden');
+}
+
+function closeProductModal() {
+    document.getElementById('product-modal').classList.add('hidden');
+}
+
+function updateModalCartAction(name) {
+    const p = PRODUCTS.find(prod => prod.name === name);
+    const cartItem = cart.find(c => c.name === name);
+    let btnHtml = '';
+    
+    if(cartItem) {
+        btnHtml = `
+        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:8px; border-radius:10px; border:1px solid var(--gold); width:100%;">
+            <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', -1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:none; color:white; border:none; width:40px; height:40px; font-size:1.5rem; cursor:pointer;">-</button>
+            <span style="font-weight:700; color:var(--gold); font-size:1.3rem;">${cartItem.qty}</span>
+            <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', 1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:var(--gold); color:black; border:none; width:40px; height:40px; border-radius:8px; font-weight:bold; font-size:1.5rem; cursor:pointer;">+</button>
+        </div>`;
+    } else {
+        btnHtml = `<button class="btn-main" onclick="addToCart('${p.name.replace(/'/g, "\\'")}'); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="padding:1rem;">Add to Cart</button>`;
+    }
+    
+    document.getElementById('modal-action-container').innerHTML = btnHtml;
+}
+
 function renderProducts(filterTerm = "") {
   if (PRODUCTS.length === 0) {
       document.getElementById('product-grid').innerHTML = `<p style="color:var(--text-muted); text-align:center; grid-column: 1 / -1;">No products found.</p>`;
@@ -259,14 +377,14 @@ function renderProducts(filterTerm = "") {
     let btn = cartItem ? `
         <div style="display:flex; flex-direction:column; width:100%; margin:8px auto 0;">
             <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:2px; border-radius:6px; border:1px solid var(--gold); width:90%; margin:0 auto;">
-                <button onclick="changeCartQty('${p.name}', -1)" style="background:none; color:white; border:none; width:25px; height:25px; font-size:1rem;">-</button>
+                <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', -1)" style="background:none; color:white; border:none; width:25px; height:25px; font-size:1rem;">-</button>
                 <span style="font-weight:700; color:var(--gold); font-size:0.9rem;">${cartItem.qty}</span>
-                <button onclick="changeCartQty('${p.name}', 1)" style="background:var(--gold); color:black; border:none; width:25px; height:25px; border-radius:4px; font-weight:bold;">+</button>
+                <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', 1)" style="background:var(--gold); color:black; border:none; width:25px; height:25px; border-radius:4px; font-weight:bold;">+</button>
             </div>
             <button class="confirm-btn" onclick="showToast('✓ Confirmed')">✓ Confirm</button>
-        </div>` : `<button class="add-btn" onclick="addToCart('${p.name}')">+ Add</button>`;
+        </div>` : `<button class="add-btn" onclick="addToCart('${p.name.replace(/'/g, "\\'")}')">+ Add</button>`;
 
-    return `<div class="card"><img src="${p.productImg || ''}" onerror="this.style.display='none'"><h4>${p.name}</h4><div class="price-row"><span class="mrp">₹${p.mrp}</span><span class="discount-badge">${p.discount}% OFF</span></div><div class="actual-price">₹${p.price}</div>${btn}</div>`;
+    return `<div class="card"><img src="${p.productImg || ''}" onerror="this.style.display='none'" onclick="openProductModal('${p.name.replace(/'/g, "\\'")}')"><h4>${p.name}</h4><div class="price-row"><span class="mrp">₹${p.mrp}</span><span class="discount-badge">${p.discount}% OFF</span></div><div class="actual-price">₹${p.price}</div>${btn}</div>`;
   }).join('');
 }
 
@@ -301,16 +419,22 @@ function updateUI() {
       filterProducts(); 
   }
   
-  document.getElementById('cart-list').innerHTML = cart.length === 0 ? `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Cart is empty.</div>` : cart.map(i => `<div style="margin-bottom:12px; padding:12px; background:var(--surface2); border-radius:12px; border:1px solid var(--border);"><div style="display:flex; justify-content:space-between;"><div><b>${i.name}</b><br><small>₹${i.price} each</small></div><b style="color:var(--gold)">₹${i.price*i.qty}</b></div><div style="display:flex; justify-content:space-between; margin-top:10px;"><div style="background:var(--bg); padding:4px; border-radius:8px;"><button onclick="changeCartQty('${i.name}', -1)">-</button> <span style="margin:0 10px">${i.qty}</span> <button onclick="changeCartQty('${i.name}', 1)">+</button></div><button onclick="cart=cart.filter(c=>c.name!=='${i.name}'); updateUI();" style="color:var(--danger); background:none; border:none;">Remove</button></div></div>`).join('');
+  document.getElementById('cart-list').innerHTML = cart.length === 0 ? `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Cart is empty.</div>` : cart.map(i => `<div style="margin-bottom:12px; padding:12px; background:var(--surface2); border-radius:12px; border:1px solid var(--border);"><div style="display:flex; justify-content:space-between;"><div><b>${i.name}</b><br><small>₹${i.price} each</small></div><b style="color:var(--gold)">₹${i.price*i.qty}</b></div><div style="display:flex; justify-content:space-between; margin-top:10px;"><div style="background:var(--bg); padding:4px; border-radius:8px;"><button onclick="changeCartQty('${i.name.replace(/'/g, "\\'")}', -1)">-</button> <span style="margin:0 10px">${i.qty}</span> <button onclick="changeCartQty('${i.name.replace(/'/g, "\\'")}', 1)">+</button></div><button onclick="cart=cart.filter(c=>c.name!=='${i.name.replace(/'/g, "\\'")}'); updateUI();" style="color:var(--danger); background:none; border:none;">Remove</button></div></div>`).join('');
 }
 
+// UPDATED: handleCheckout function dynamically adds user's name to the Success Page
 function handleCheckout() {
     if(cart.length === 0) return;
     
     const selectedSlot = document.getElementById('delivery-slot').value;
     
     localStorage.removeItem('shopease_cart'); 
-    showPage('page-success'); closeCart();
+    
+    // Inject the user's name dynamically
+    document.getElementById('success-greeting').innerText = `Thank you, ${user.name || 'Customer'}!`;
+    
+    showPage('page-success'); 
+    closeCart();
     
     fetch(APPS_SCRIPT_URL, { 
         method: 'POST',
