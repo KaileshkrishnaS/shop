@@ -36,7 +36,7 @@
   .discount-badge { background: var(--danger); color: #fff; font-size: 0.6rem; padding: 2px 4px; border-radius: 4px; font-weight: bold; }
   .actual-price { color: var(--gold); font-weight: 700; font-size: 1rem; margin-top: 2px; }
   .add-btn { width: 90%; background: var(--gold); color: #000; border: none; padding: 6px; border-radius: 8px; margin-top: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
-  .confirm-btn { width: 90%; background: var(--success); color: #fff; border: none; padding: 6px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 6px; font-size: 0.8rem; margin-left:auto; margin-right:auto; display:block; }
+  .confirm-btn { width: 90%; background: var(--success); color: #fff; border: none; padding: 6px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 6px; font-size: 0.8rem; margin-left:auto; margin-right:auto; display:block; transition: 0.2s; }
   
   .bottom-action { position: fixed; bottom: 0; left: 0; right: 0; padding: 1.2rem; background: linear-gradient(transparent, var(--bg) 20%); padding-bottom: calc(1.2rem + var(--safe-area-bottom)); }
   .btn-main { width: 100%; background: var(--gold); color: #000; border: none; padding: 1.2rem; border-radius: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.3s; position: relative; }
@@ -104,9 +104,7 @@
     <h3 id="success-greeting" style="color:var(--gold); margin-bottom: 0.5rem; font-size:1.5rem;"></h3>
     <h2>Order Placed!</h2>
     <p style="color:var(--text-muted); margin-top:1rem">Your items are on the way.</p>
-    
     <p style="color:var(--text-muted); font-size:0.85rem; margin-top:2rem;">For queries call: <strong style="color:var(--text);">90XXXXXXXX</strong></p>
-    
     <div class="bottom-action"><button class="btn-main" onclick="location.reload()">Shop Again</button></div>
   </div>
 </div>
@@ -340,17 +338,37 @@ function closeProductModal() {
     document.getElementById('product-modal').classList.add('hidden');
 }
 
+// NEW: Function to lock in the item quantity and hide the Confirm button
+function confirmItem(name) {
+    const item = cart.find(c => c.name === name);
+    if (item) {
+        item.confirmed = true;
+        updateUI(); 
+        showToast('✓ Confirmed');
+        
+        // Also update the modal if it happens to be open
+        const modalTitle = document.getElementById('modal-title').innerText;
+        if (!document.getElementById('product-modal').classList.contains('hidden') && modalTitle === name) {
+            updateModalCartAction(name);
+        }
+    }
+}
+
 function updateModalCartAction(name) {
     const p = PRODUCTS.find(prod => prod.name === name);
     const cartItem = cart.find(c => c.name === name);
     let btnHtml = '';
     
     if(cartItem) {
+        let confirmBtnHtml = cartItem.confirmed ? '' : `<button class="confirm-btn" onclick="confirmItem('${p.name.replace(/'/g, "\\'")}')" style="margin-top:10px; width:100%; font-size:1rem; padding:10px;">✓ Confirm</button>`;
         btnHtml = `
-        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:8px; border-radius:10px; border:1px solid var(--gold); width:100%;">
-            <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', -1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:none; color:white; border:none; width:40px; height:40px; font-size:1.5rem; cursor:pointer;">-</button>
-            <span style="font-weight:700; color:var(--gold); font-size:1.3rem;">${cartItem.qty}</span>
-            <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', 1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:var(--gold); color:black; border:none; width:40px; height:40px; border-radius:8px; font-weight:bold; font-size:1.5rem; cursor:pointer;">+</button>
+        <div style="display:flex; flex-direction:column; width:100%;">
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:8px; border-radius:10px; border:1px solid var(--gold); width:100%;">
+                <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', -1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:none; color:white; border:none; width:40px; height:40px; font-size:1.5rem; cursor:pointer;">-</button>
+                <span style="font-weight:700; color:var(--gold); font-size:1.3rem;">${cartItem.qty}</span>
+                <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', 1); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="background:var(--gold); color:black; border:none; width:40px; height:40px; border-radius:8px; font-weight:bold; font-size:1.5rem; cursor:pointer;">+</button>
+            </div>
+            ${confirmBtnHtml}
         </div>`;
     } else {
         btnHtml = `<button class="btn-main" onclick="addToCart('${p.name.replace(/'/g, "\\'")}'); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="padding:1rem;">Add to Cart</button>`;
@@ -374,15 +392,22 @@ function renderProducts(filterTerm = "") {
   
   document.getElementById('product-grid').innerHTML = itemsToDisplay.map(p => {
     const cartItem = cart.find(c => c.name === p.name);
-    let btn = cartItem ? `
+    let btn = '';
+
+    if (cartItem) {
+        let confirmBtnHtml = cartItem.confirmed ? '' : `<button class="confirm-btn" onclick="confirmItem('${p.name.replace(/'/g, "\\'")}')">✓ Confirm</button>`;
+        btn = `
         <div style="display:flex; flex-direction:column; width:100%; margin:8px auto 0;">
             <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:2px; border-radius:6px; border:1px solid var(--gold); width:90%; margin:0 auto;">
                 <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', -1)" style="background:none; color:white; border:none; width:25px; height:25px; font-size:1rem;">-</button>
                 <span style="font-weight:700; color:var(--gold); font-size:0.9rem;">${cartItem.qty}</span>
                 <button onclick="changeCartQty('${p.name.replace(/'/g, "\\'")}', 1)" style="background:var(--gold); color:black; border:none; width:25px; height:25px; border-radius:4px; font-weight:bold;">+</button>
             </div>
-            <button class="confirm-btn" onclick="showToast('✓ Confirmed')">✓ Confirm</button>
-        </div>` : `<button class="add-btn" onclick="addToCart('${p.name.replace(/'/g, "\\'")}')">+ Add</button>`;
+            ${confirmBtnHtml}
+        </div>`;
+    } else {
+        btn = `<button class="add-btn" onclick="addToCart('${p.name.replace(/'/g, "\\'")}')">+ Add</button>`;
+    }
 
     return `<div class="card"><img src="${p.productImg || ''}" onerror="this.style.display='none'" onclick="openProductModal('${p.name.replace(/'/g, "\\'")}')"><h4>${p.name}</h4><div class="price-row"><span class="mrp">₹${p.mrp}</span><span class="discount-badge">${p.discount}% OFF</span></div><div class="actual-price">₹${p.price}</div>${btn}</div>`;
   }).join('');
@@ -391,7 +416,12 @@ function renderProducts(filterTerm = "") {
 function addToCart(name) {
   const p = PRODUCTS.find(prod => prod.name === name);
   const exist = cart.find(c => c.name === name);
-  if(exist) exist.qty++; else cart.push({ ...p, qty: 1 });
+  if(exist) {
+      exist.qty++;
+      exist.confirmed = false; // Show confirm button again
+  } else { 
+      cart.push({ ...p, qty: 1, confirmed: false });
+  }
   updateUI(); showToast('Added to Cart');
 }
 
@@ -399,6 +429,7 @@ function changeCartQty(name, delta) {
   const item = cart.find(c => c.name === name);
   if (item) {
     item.qty += delta;
+    item.confirmed = false; // Quantity changed, show confirm button again
     if (item.qty <= 0) cart = cart.filter(c => c.name !== name);
     updateUI();
   }
@@ -422,7 +453,6 @@ function updateUI() {
   document.getElementById('cart-list').innerHTML = cart.length === 0 ? `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Cart is empty.</div>` : cart.map(i => `<div style="margin-bottom:12px; padding:12px; background:var(--surface2); border-radius:12px; border:1px solid var(--border);"><div style="display:flex; justify-content:space-between;"><div><b>${i.name}</b><br><small>₹${i.price} each</small></div><b style="color:var(--gold)">₹${i.price*i.qty}</b></div><div style="display:flex; justify-content:space-between; margin-top:10px;"><div style="background:var(--bg); padding:4px; border-radius:8px;"><button onclick="changeCartQty('${i.name.replace(/'/g, "\\'")}', -1)">-</button> <span style="margin:0 10px">${i.qty}</span> <button onclick="changeCartQty('${i.name.replace(/'/g, "\\'")}', 1)">+</button></div><button onclick="cart=cart.filter(c=>c.name!=='${i.name.replace(/'/g, "\\'")}'); updateUI();" style="color:var(--danger); background:none; border:none;">Remove</button></div></div>`).join('');
 }
 
-// UPDATED: handleCheckout function dynamically adds user's name to the Success Page
 function handleCheckout() {
     if(cart.length === 0) return;
     
@@ -430,7 +460,6 @@ function handleCheckout() {
     
     localStorage.removeItem('shopease_cart'); 
     
-    // Inject the user's name dynamically
     document.getElementById('success-greeting').innerText = `Thank you, ${user.name || 'Customer'}!`;
     
     showPage('page-success'); 
