@@ -162,7 +162,7 @@
 </div>
 
 <script>
-// IMPORTANT: Paste your NEW Apps Script URL here!
+// Make sure this is your NEW Apps Script URL!
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd-VY1Ji4wp68Bo5v6S8RdRUQIukc0ziDM2F86y2FepriByhftQhxNUIGeJxGLhNIH/exec';
 
 let PRODUCTS = [];
@@ -214,7 +214,7 @@ function checkLocalCache() {
         document.getElementById('f-name').value = user.name || '';
         document.getElementById('f-phone').value = user.phone || '';
         document.getElementById('f-address').value = user.address || '';
-        document.getElementById('f-pincode').value = user.pincode || ''; // Load saved pincode
+        document.getElementById('f-pincode').value = user.pincode || ''; 
         
         let hasActiveCart = false;
         try {
@@ -276,7 +276,6 @@ function handleLogin() {
   if(!enteredName || !enteredPhone) return showToast('Enter Name & Phone');
   if(!enteredPincode) return showToast('Enter Pincode');
 
-  // NEW: Pincode Validation
   const validPins = ["635601", "635602", "333333"];
   if (!validPins.includes(enteredPincode)) {
       return showToast('Sorry, we do not deliver to this Pincode!');
@@ -341,9 +340,14 @@ function openProductModal(name) {
     document.getElementById('modal-img').src = p.productImg || '';
     document.getElementById('modal-img').style.display = p.productImg ? 'block' : 'none';
     document.getElementById('modal-title').innerText = p.name;
-    document.getElementById('modal-mrp').innerText = `₹${p.mrp}`;
     document.getElementById('modal-discount').innerText = `${p.discount}% OFF`;
-    document.getElementById('modal-price').innerText = `₹${p.price}`;
+    
+    // LOAD THE CORRECT PRICE AND MRP BASED ON CURRENT CART QUANTITY
+    const cartItem = cart.find(c => c.name === name);
+    const displayQty = cartItem ? cartItem.qty : 1; 
+    
+    document.getElementById('modal-mrp').innerText = `₹${p.mrp * displayQty}`;
+    document.getElementById('modal-price').innerText = `₹${p.price * displayQty}`;
 
     updateModalCartAction(p.name);
     document.getElementById('product-modal').classList.remove('hidden');
@@ -373,6 +377,10 @@ function updateModalCartAction(name) {
     let btnHtml = '';
     
     if(cartItem) {
+        // DYNAMICALLY UPDATE MRP AND PRICE WHEN +/- IS CLICKED
+        document.getElementById('modal-mrp').innerText = `₹${p.mrp * cartItem.qty}`;
+        document.getElementById('modal-price').innerText = `₹${p.price * cartItem.qty}`;
+        
         let confirmBtnHtml = cartItem.confirmed ? '' : `<button class="confirm-btn" onclick="confirmItem('${p.name.replace(/'/g, "\\'")}')" style="margin-top:10px; width:100%; font-size:1rem; padding:10px;">✓ Confirm</button>`;
         btnHtml = `
         <div style="display:flex; flex-direction:column; width:100%;">
@@ -384,6 +392,10 @@ function updateModalCartAction(name) {
             ${confirmBtnHtml}
         </div>`;
     } else {
+        // RESET TO BASE PRICE IF ITEM IS REMOVED ENTIRELY
+        document.getElementById('modal-mrp').innerText = `₹${p.mrp}`;
+        document.getElementById('modal-price').innerText = `₹${p.price}`;
+        
         btnHtml = `<button class="btn-main" onclick="addToCart('${p.name.replace(/'/g, "\\'")}'); updateModalCartAction('${p.name.replace(/'/g, "\\'")}');" style="padding:1rem;">Add to Cart</button>`;
     }
     
@@ -406,6 +418,11 @@ function renderProducts(filterTerm = "") {
   document.getElementById('product-grid').innerHTML = itemsToDisplay.map(p => {
     const cartItem = cart.find(c => c.name === p.name);
     let btn = '';
+    
+    // --- FIX START: Multiply prices for the main grid based on cart quantity ---
+    let displayMrp = cartItem ? p.mrp * cartItem.qty : p.mrp;
+    let displayPrice = cartItem ? p.price * cartItem.qty : p.price;
+    // --- FIX END ---
 
     if (cartItem) {
         let confirmBtnHtml = cartItem.confirmed ? '' : `<button class="confirm-btn" onclick="confirmItem('${p.name.replace(/'/g, "\\'")}')">✓ Confirm</button>`;
@@ -422,7 +439,7 @@ function renderProducts(filterTerm = "") {
         btn = `<button class="add-btn" onclick="addToCart('${p.name.replace(/'/g, "\\'")}')">+ Add</button>`;
     }
 
-    return `<div class="card"><img src="${p.productImg || ''}" onerror="this.style.display='none'" onclick="openProductModal('${p.name.replace(/'/g, "\\'")}')"><h4>${p.name}</h4><div class="price-row"><span class="mrp">₹${p.mrp}</span><span class="discount-badge">${p.discount}% OFF</span></div><div class="actual-price">₹${p.price}</div>${btn}</div>`;
+    return `<div class="card"><img src="${p.productImg || ''}" onerror="this.style.display='none'" onclick="openProductModal('${p.name.replace(/'/g, "\\'")}')"><h4>${p.name}</h4><div class="price-row"><span class="mrp">₹${displayMrp}</span><span class="discount-badge">${p.discount}% OFF</span></div><div class="actual-price">₹${displayPrice}</div>${btn}</div>`;
   }).join('');
 }
 
@@ -449,7 +466,10 @@ function changeCartQty(name, delta) {
 }
 
 function updateUI() {
-  const count = cart.reduce((s, i) => s + i.qty, 0);
+  // --- FIX START: Change badge to count unique items instead of total quantity ---
+  const count = cart.length; 
+  // --- FIX END ---
+  
   const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
   const totalMrp = cart.reduce((s, i) => s + (i.mrp * i.qty), 0);
   
